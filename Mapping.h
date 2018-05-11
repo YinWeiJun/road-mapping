@@ -24,9 +24,52 @@ struct CoverInfo
 	int startp_ln2_mappingp_pos;
 	int endp_ln2_mappingp_pos;
 
-	bool covered = true;
+	bool covered;
+
+	CoverInfo()
+	 :startp_ln1(geos::geom::Coordinate())
+	 ,endp_ln1(geos::geom::Coordinate())
+	 ,startp_ln1_pos(0)
+	 ,endp_ln1_pos(0)
+	 ,startp_ln1_mappingp(geos::geom::Coordinate())
+	 ,endp_ln1_mappingp(geos::geom::Coordinate())
+	 ,startp_ln1_mappingp_pos(0)
+	 ,endp_ln1_mappingp_pos(0)
+	 ,startp_ln2(geos::geom::Coordinate())
+	 ,endp_ln2(geos::geom::Coordinate())
+	 ,startp_ln2_pos(0)
+	 ,endp_ln2_pos(0)
+	 ,startp_ln2_mappingp(geos::geom::Coordinate())
+	 ,endp_ln2_mappingp(geos::geom::Coordinate())
+	 ,startp_ln2_mappingp_pos(0)
+	 ,endp_ln2_mappingp_pos(0)
+	 ,covered(true){}
 };
 
+struct WayMappingDis
+{
+	double dis_min;
+	double dis_max;
+	double dis_avg;
+	WayMappingDis()
+	 : dis_min(DBL_MAX)
+	 , dis_max(0.)
+	 , dis_avg(DBL_MAX){}
+
+	~WayMappingDis(){}
+
+};
+
+struct WayHaustorffDis
+{
+	double dis_hausdorff_min;
+	double dis_hausdorff_max;
+	WayHaustorffDis()
+	 : dis_hausdorff_min(DBL_MAX)
+	 , dis_hausdorff_max(DBL_MAX){}
+
+	~WayHaustorffDis(){}
+};
 //特征计算（平均匹配距离，最小距离，最大距离，目标覆盖率，参考覆盖率，匹配角度差，进入角度差，离开角度差，首尾角度差，内角和差，豪斯多夫距离，相交点数，入度，出度）
 struct WayFeature
 {
@@ -94,9 +137,15 @@ public:
 	static geos::geom::Coordinate calPt_Pt2Line(geos::geom::Point& p, geos::geom::LineString& ls);
 	static geos::geom::Coordinate calPt_Pt2Line(geos::geom::Point* p, geos::geom::LineString* ls);
 
-	static CoverInfo cal_CoverOfLine(geos::geom::LineString& ln1, geos::geom::LineString& ln2, double dist_Threshold);
-
 	static geos::geom::Coordinate calMappingPoint(geos::geom::LineSegment& sg1, geos::geom::LineSegment& sg2);
+
+	static void calMappingStartPoint(geos::geom::LineString& ln1, geos::geom::LineString& ln2, double dist_Threshold, CoverInfo& ci);
+
+	static CoverInfo calCoverOfLine(geos::geom::LineString& ln1, geos::geom::LineString& ln2, double dist_Threshold);
+
+	static WayHaustorffDis calHausdorffDis(geos::geom::LineString& ln1, geos::geom::LineString& ln2);
+
+	static WayMappingDis calMappingDis(geos::geom::LineString& ln1, geos::geom::LineString& ln2, double dis_Threshold);
 
 	static WayFeature calMappingFeature(geos::geom::LineString& ln1, geos::geom::LineString& ln2, double dis_Threshold);
 };
