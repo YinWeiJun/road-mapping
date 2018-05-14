@@ -238,8 +238,8 @@ bool Mapping::calHausdorffDis(WayHaustorffDis& wayHausdorff, const geos::geom::L
 		}
 		dis_hausdorff_ln2 = std::max(dis_hausdorff_ln2, d);
 	}
-	wayHausdorff.dis_hausdorff_min = std::min(dis_hausdorff_ln1, dis_hausdorff_ln2);
-	wayHausdorff.dis_hausdorff_max = std::max(dis_hausdorff_ln1, dis_hausdorff_ln2);
+	wayHausdorff.dis_hausdorff_ln1 = dis_hausdorff_ln1;
+	wayHausdorff.dis_hausdorff_ln2 = dis_hausdorff_ln2;
 	return true;
 }
 
@@ -334,6 +334,50 @@ bool Mapping::calMappingDis(WayMappingDis& wayMappingDis, const geos::geom::Line
 	wayMappingDis.dis_min = dis_min;
 	wayMappingDis.dis_max = dis_max;
 	return true;
+}
+
+// 计算ln1于ln2分别的匹配长度
+void Mapping::calMappingLength(WayCoverLength& wayCoverLength, const geos::geom::LineString& ln1, const geos::geom::LineString& ln2, double dis_Threshold)
+{
+	WayMappingPos wayMappingPos;
+	Mapping::calCoverOfLine(wayMappingPos, ln1, ln2, dis_Threshold);
+	double len_ln1_cover = 0.;
+	int left = wayMappingPos.ln1.startp_pos;
+	int right = wayMappingPos.ln1.endp_pos;
+	if(!wayMappingPos.ln1.startp.equals(ln1.getCoordinateN(wayMappingPos.ln1.startp_pos)))
+	{
+		len_ln1_cover += (wayMappingPos.ln1.startp).distance(ln1.getCoordinateN(wayMappingPos.ln1.startp_pos));
+	}
+	while(left < right)
+	{
+		len_ln1_cover += ln1.getCoordinateN(left).distance(ln1.getCoordinateN(left+1));
+		left += 1;
+	}
+	if(!wayMappingPos.ln1.endp.equals(ln1.getCoordinateN(wayMappingPos.ln1.endp_pos)))
+	{
+		len_ln1_cover += wayMappingPos.ln1.endp.distance(ln1.getCoordinateN(wayMappingPos.ln1.endp_pos));
+	}
+
+	double len_ln2_cover = 0.;
+	left = wayMappingPos.ln2.startp_pos;
+	right = wayMappingPos.ln2.endp_pos;
+	if(!wayMappingPos.ln2.startp.equals(ln2.getCoordinateN(wayMappingPos.ln2.startp_pos)))
+	{
+		len_ln2_cover += (wayMappingPos.ln2.startp).distance(ln2.getCoordinateN(wayMappingPos.ln2.startp_pos));
+	}
+	while(left < right)
+	{
+		len_ln2_cover += (ln2.getCoordinateN(left)).distance(ln2.getCoordinateN(left+1));
+		left += 1;
+	}
+	if(!wayMappingPos.ln2.endp.equals(ln2.getCoordinateN(wayMappingPos.ln2.endp_pos)))
+	{
+		len_ln2_cover += wayMappingPos.ln2.endp.distance(ln2.getCoordinateN(wayMappingPos.ln2.endp_pos));
+	}
+
+	wayCoverLength.len_ln1_cover = len_ln1_cover;
+	wayCoverLength.len_ln2_cover = len_ln2_cover;
+
 }
 
 // ln1和ln2之间的豪斯多夫距离和匹配距离
@@ -510,7 +554,7 @@ bool Mapping::calMappingFeature(WayFeature& wayFeature, const geos::geom::LineSt
 	wayFeature.dis_average = dis_avg / num;
 	wayFeature.dis_min = dis_min;
 	wayFeature.dis_max = dis_max;
-	wayFeature.dis_hausdorff_min = std::min(dis_hausdorff_ln1, dis_hausdorff_ln2);
-	wayFeature.dis_hausdorff_max = std::max(dis_hausdorff_ln1, dis_hausdorff_ln2);
+	wayFeature.dis_hausdorff_ln1 = dis_hausdorff_ln1;
+	wayFeature.dis_hausdorff_ln2 = dis_hausdorff_ln2;
 	return true;
 }
