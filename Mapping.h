@@ -44,6 +44,43 @@ struct CoverInfo
 	 ,startp_ln2_mappingp_pos(0)
 	 ,endp_ln2_mappingp_pos(0)
 	 ,covered(true){}
+	~CoverInfo(){}
+};
+
+struct WayMappingPt
+{
+	geos::geom::Coordinate startp;
+	geos::geom::Coordinate endp;
+	int startp_pos;
+	int endp_pos;
+	geos::geom::Coordinate startp_mappingp;
+	geos::geom::Coordinate endp_mappingp;
+	int startp_mappingp_pos;
+	int endp_mappingp_pos;
+	WayMappingPt()
+	 :startp(geos::geom::Coordinate())
+	 ,endp(geos::geom::Coordinate())
+	 ,startp_pos(-1)
+	 ,endp_pos(-1)
+	 ,startp_mappingp(geos::geom::Coordinate())
+	 ,endp_mappingp(geos::geom::Coordinate())
+	 ,startp_mappingp_pos(-1)
+	 ,endp_mappingp_pos(-1){}
+	~WayMappingPt(){}
+};
+
+struct WayMappingPos
+{
+	WayMappingPt ln1;
+	WayMappingPt ln2;
+	bool mapping_ln1;
+	bool mapping_ln2;
+	WayMappingPos()
+	 :ln1(WayMappingPt())
+	 ,ln2(WayMappingPt())
+	 ,mapping_ln1(false)
+	 ,mapping_ln2(false){}
+	~WayMappingPos(){}
 };
 
 struct WayMappingDis
@@ -70,6 +107,7 @@ struct WayHaustorffDis
 
 	~WayHaustorffDis(){}
 };
+
 //特征计算（平均匹配距离，最小距离，最大距离，目标覆盖率，参考覆盖率，匹配角度差，进入角度差，离开角度差，首尾角度差，内角和差，豪斯多夫距离，相交点数，入度，出度）
 struct WayFeature
 {
@@ -84,7 +122,6 @@ struct WayFeature
 
 	double dis_hausdorff_min;
 	double dis_hausdorff_max;
-	double dis_hausdorff_avg;
 	double dis_average;
 	double dis_max;
 	double dis_min;
@@ -110,7 +147,6 @@ struct WayFeature
 	, angle_diff_all(M_PI)
 	, dis_hausdorff_min(DBL_MAX)
 	, dis_hausdorff_max(-1.)
-	, dis_hausdorff_avg(DBL_MAX)
 	, dis_average(DBL_MAX)
 	, dis_max(-1.)
 	, dis_min(DBL_MAX)
@@ -137,15 +173,25 @@ public:
 	static geos::geom::Coordinate calPt_Pt2Line(geos::geom::Point& p, geos::geom::LineString& ls);
 	static geos::geom::Coordinate calPt_Pt2Line(geos::geom::Point* p, geos::geom::LineString* ls);
 
-	static geos::geom::Coordinate calMappingPoint(geos::geom::LineSegment& sg1, geos::geom::LineSegment& sg2);
+	// 求sg2 p0点作sg2的垂线，与sg1的交点 sg1与sg2的夹角小于30度
+	static void calMappingPoint(geos::geom::Coordinate& pt, const geos::geom::LineSegment& sg1, const geos::geom::LineSegment& sg2, bool first);
 
-	static void calMappingStartPoint(geos::geom::LineString& ln1, geos::geom::LineString& ln2, double dist_Threshold, CoverInfo& ci);
+	//	ln1匹配到ln2的第一个点坐标及其位置，以及映射到了ln2上到坐标和位置
+	static bool calMappingStartPoint(CoverInfo& ci, const geos::geom::LineString& ln1, const geos::geom::LineString& ln2, double dist_Threshold);
 
-	static CoverInfo calCoverOfLine(geos::geom::LineString& ln1, geos::geom::LineString& ln2, double dist_Threshold);
+	//	ln1映射到ln2的起止坐标点和对应的位置
+	static bool calMappingPointPos(WayMappingPt& wayMappingPt, const geos::geom::LineString& ln1, const geos::geom::LineString& ln2, double dis_Threshold);
 
-	static WayHaustorffDis calHausdorffDis(geos::geom::LineString& ln1, geos::geom::LineString& ln2);
+	// ln1与ln2, 相互到第一个匹配点和最后一个匹配点，以及对应到映射点
+	static void calCoverOfLine(CoverInfo& coverInfo, const geos::geom::LineString& ln1, const geos::geom::LineString& ln2, double dis_Threshold);
+	static void calCoverOfLine(WayMappingPos& wayMappingPos, const geos::geom::LineString& ln1, const geos::geom::LineString& ln2, double dis_Threshold);
 
-	static WayMappingDis calMappingDis(geos::geom::LineString& ln1, geos::geom::LineString& ln2, double dis_Threshold);
+	// ln1与ln2之间点豪斯多夫距离 包括ln1到ln2和ln2到ln1的两个豪斯多夫距离的最大和最小值
+	static bool calHausdorffDis(WayHaustorffDis& wayHausdorffDis, const geos::geom::LineString& ln1, const geos::geom::LineString& ln2);
 
-	static WayFeature calMappingFeature(geos::geom::LineString& ln1, geos::geom::LineString& ln2, double dis_Threshold);
+	// ln1与ln2匹配点间的距离 包括最大／最小／平均
+	static bool calMappingDis(WayMappingDis& wayMappingDis, const geos::geom::LineString& ln1, const geos::geom::LineString& ln2, double dis_Threshold);
+
+	// ln1和ln2之间的豪斯多夫距离和匹配距离
+	static bool calMappingFeature(WayFeature& wayFeature, const geos::geom::LineString& ln1, const geos::geom::LineString& ln2, double dis_Threshold);
 };
