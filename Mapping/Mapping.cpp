@@ -128,6 +128,21 @@ bool Mapping::calMappingPointPos(WayMappingPt& wayMappingPt, const geos::geom::L
 				break;
 			}
 		}
+		if(i == ln1.getNumPoints()-1)
+		{
+			geos::geom::LineSegment sg_ln2 = geos::geom::LineSegment(ln2.getCoordinateN(0), ln2.getCoordinateN(1));
+			geos::geom::Coordinate startp;
+			Mapping::calMappingPoint(startp, sg_ln1, sg_ln2, true);
+			if(sg_ln1.distance(startp) < 1e-7 && sg_ln2.p0.distance(startp) < dis_Threshold)
+			{
+				wayMappingPt.startp = startp;
+				wayMappingPt.startp_pos = i;
+				wayMappingPt.startp_mappingp = sg_ln2.p0;
+				wayMappingPt.startp_mappingp_pos = 0;
+				finded = true;
+				break;
+			}
+		}
 	}
 	bool finded2 = finded;
 	for(int i = ln1.getNumPoints() - 1; i > 0 && finded2; i--)
@@ -170,6 +185,21 @@ bool Mapping::calMappingPointPos(WayMappingPt& wayMappingPt, const geos::geom::L
 						wayMappingPt.endp_mappingp_pos = j;
 					}
 				}
+				finded2 = false;
+				break;
+			}
+		}
+		if(1 == i)
+		{
+			geos::geom::LineSegment sg_ln2 = geos::geom::LineSegment(ln2.getCoordinateN(ln2.getNumPoints()-1), ln2.getCoordinateN(ln2.getNumPoints()-1));
+			geos::geom::Coordinate endp;
+			Mapping::calMappingPoint(endp, sg_ln1, sg_ln2, dis_Threshold);
+			if(sg_ln1.distance(endp) < 1e-7 && sg_ln2.p0.distance(endp) < dis_Threshold)
+			{
+				wayMappingPt.endp = endp;
+				wayMappingPt.endp_pos = 0;
+				wayMappingPt.endp_mappingp = sg_ln2.p0;
+				wayMappingPt.endp_mappingp_pos = ln2.getNumPoints() -1;
 				finded2 = false;
 				break;
 			}
