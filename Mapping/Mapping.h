@@ -4,7 +4,15 @@
 #include <math.h>
 using namespace std;
 
-
+struct WayCoverLength
+{
+	double len_ln1_cover;
+	double len_ln2_cover;
+	WayCoverLength()
+	 :len_ln1_cover(0.)
+	 ,len_ln2_cover(0.){}
+	~WayCoverLength(){}
+};
 
 struct WayMappingPt
 {
@@ -58,11 +66,11 @@ struct WayMappingDis
 
 struct WayHaustorffDis
 {
-	double dis_hausdorff_min;
-	double dis_hausdorff_max;
+	double dis_hausdorff_ln1;
+	double dis_hausdorff_ln2;
 	WayHaustorffDis()
-	 : dis_hausdorff_min(DBL_MAX)
-	 , dis_hausdorff_max(DBL_MAX){}
+	 : dis_hausdorff_ln1(DBL_MAX)
+	 , dis_hausdorff_ln2(DBL_MAX){}
 
 	~WayHaustorffDis(){}
 };
@@ -79,8 +87,8 @@ struct WayFeature
 	double angle_diff_skeleton;
 	double angle_diff_all;
 
-	double dis_hausdorff_min;
-	double dis_hausdorff_max;
+	double dis_hausdorff_ln1;
+	double dis_hausdorff_ln2;
 	double dis_average;
 	double dis_max;
 	double dis_min;
@@ -104,8 +112,8 @@ struct WayFeature
 	, angle_diff_end(M_PI)
 	, angle_diff_skeleton(M_PI)
 	, angle_diff_all(M_PI)
-	, dis_hausdorff_min(DBL_MAX)
-	, dis_hausdorff_max(-1.)
+	, dis_hausdorff_ln1(DBL_MAX)
+	, dis_hausdorff_ln2(-1.)
 	, dis_average(DBL_MAX)
 	, dis_max(-1.)
 	, dis_min(DBL_MAX)
@@ -139,6 +147,9 @@ public:
 
 	// ln1与ln2匹配点间的距离 包括最大／最小／平均
 	static bool calMappingDis(WayMappingDis& wayMappingDis, const geos::geom::LineString& ln1, const geos::geom::LineString& ln2, double dis_Threshold);
+
+	// 计算ln1于ln2分别的匹配长度
+	static void calMappingLength(WayCoverLength& wayCoverLength, const geos::geom::LineString& ln1, const geos::geom::LineString& ln2, double dis_Threshold);
 
 	// ln1和ln2之间的豪斯多夫距离和匹配距离
 	static bool calMappingFeature(WayFeature& wayFeature, const geos::geom::LineString& ln1, const geos::geom::LineString& ln2, double dis_Threshold);
