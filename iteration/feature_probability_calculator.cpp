@@ -151,7 +151,7 @@ void FeatureProbabilityCalculator::calQ(double& q, PWayMatchingPair& pWayMatchin
 				double dis = 1.0 / (1.0 + q_dis * q_dis);
 				double dir = 1.0 / (1.0 + q_dir * q_dir);
 
-				double c = (((1.0 / dis) + (1.0 / dir)) / 2) * (way_last_main->length / way_last_mapped->length);
+				double c = (2.0 / ((1.0 / dis) + (1.0 / dir))) * (way_last_main->length / way_last_mapped->length);
 
 				cp = std::max(cp, c * confidence);
 			}
@@ -175,7 +175,7 @@ void FeatureProbabilityCalculator::calQ(double& q, PWayMatchingPair& pWayMatchin
 			double dis = 1.0 / (1.0 + q_dis * q_dis);
 			double dir = 1.0 / (1.0 + q_dir * q_dir);
 
-			double c = (((1.0 / dis) + (1.0 / dir)) / 2) * (way_last_main->length / way_mapped->length);
+			double c = (2.0 / ((1.0 / dis) + (1.0 / dir))) * (way_last_main->length / way_mapped->length);
 
 			cp = std::max(cp, c * confidence_j);
 		}
@@ -188,7 +188,7 @@ void FeatureProbabilityCalculator::calQ(double& q, PWayMatchingPair& pWayMatchin
 	}
 	q1 = q1 / num_q1;
 
-	//q1
+	//q2
 	// i,j,i,b
 	std::vector<PWay>::iterator it_last_mapped = mapped.begin();
 	for(; it_last_mapped != mapped.end(); ++it_last_mapped)
@@ -213,7 +213,7 @@ void FeatureProbabilityCalculator::calQ(double& q, PWayMatchingPair& pWayMatchin
 			double dis = 1.0 / (1.0 + q_dis * q_dis);
 			double dir = 1.0 / (1.0 + q_dir * q_dir);
 
-			double c = (((1.0 / dis) + (1.0 / dir)) / 2) * (way_main->length / way_last_mapped->length);
+			double c = (2.0 / ((1.0 / dis) + (1.0 / dir))) * (way_main->length / way_last_mapped->length);
 
 			q2 = std::max(q2, c * confidence_i);
 		}
