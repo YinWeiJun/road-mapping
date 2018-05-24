@@ -242,8 +242,8 @@ void FeatureProbabilityCalculator::initEigen_support(std::map<std::string, int>&
 		FeatureProbabilityCalculator::calQ(q_next_ij, pWayMatchingPair, ids_main, ids_mapped, true, false);
 		FeatureProbabilityCalculator::calQ(q_last_ji, pWayMatchingPair, ids_main, ids_mapped, false, true);
 		FeatureProbabilityCalculator::calQ(q_next_ji, pWayMatchingPair, ids_main, ids_mapped, false, false);
-		double q_ij = std::max(q_last_ij, q_next_ij);
-		double q_ji = std::max(q_last_ji, q_next_ji);
+		double q_ij = q_last_ij + q_next_ij;
+		double q_ji = q_last_ji + q_next_ji;
 
 		double q = sqrt(q_ij * q_ji);
 		matrix_confidence_(index_way_main, index_way_mapped) = q;
