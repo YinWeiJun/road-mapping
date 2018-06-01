@@ -322,7 +322,7 @@ bool WayFeatureCalculator::calCoverOfLine(WayMappingPos& wayMappingPos, const ge
 }
 
 // ln1与ln2之间点豪斯多夫距离 包括ln1到ln2和ln2到ln1的两个豪斯多夫距离的最大和最小值
-bool WayFeatureCalculator::calHausdorffDis(WayHaustorffDis& wayHausdorff, const geos::geom::LineString& ln1, const geos::geom::LineString& ln2)
+bool WayFeatureCalculator::calHausdorffDis(WayHausdorffDis& wayHausdorff, const geos::geom::LineString& ln1, const geos::geom::LineString& ln2)
 {
 	geos::geom::Coordinate unused;
 	double dis_hausdorff_ln1 = 0;
@@ -497,6 +497,8 @@ bool WayFeatureCalculator::calMappingDis(WayMappingDis& wayMappingDis, const geo
 	wayMappingDis.dis_avg = dis_avg / num;
 	wayMappingDis.dis_min = dis_min;
 	wayMappingDis.dis_max = dis_max;
+	wayMappingDis.dis_mapping_sta = GeosTool::calculate_distance(wayMappingPos.ln1.startp, wayMappingPos.ln1.startp_mappingp);
+	wayMappingDis.dis_mapping_end = GeosTool::calculate_distance(wayMappingPos.ln1.endp, wayMappingPos.ln1.endp_mappingp);
 	return true;
 }
 
@@ -573,6 +575,7 @@ bool WayFeatureCalculator::calMappingLength(WayCoverLength& wayCoverLength,
 	angle_diff_cover = GeosTool::calculate_include_angle(sg1.angle(), sg2.angle());
 	wayCoverLength.angle_diff_cover = angle_diff_cover;
 
+
 //	std::cerr << angle_diff_cover << "," << wayMappingPos.ln1.startp << "," << wayMappingPos.ln1.endp << "," << wayMappingPos.ln2.startp << "," << wayMappingPos.ln2.endp << std::endl;
 	return true;
 }
@@ -588,7 +591,7 @@ bool WayFeatureCalculator::calMappingFeature(WayFeature& wayFeature, const geos:
 		wayFeature.length_mapping_ln2 = wayCoverLength.len_ln2_cover;
 		wayFeature.angle_diff_mapping = wayCoverLength.angle_diff_cover;
 	}
-	WayHaustorffDis wayHausdorffDis;
+	WayHausdorffDis wayHausdorffDis;
 	bool ret_wfc2 = WayFeatureCalculator::calHausdorffDis(wayHausdorffDis, ln1, ln2);
 	if(ret_wfc2)
 	{
@@ -609,6 +612,8 @@ bool WayFeatureCalculator::calMappingFeature(WayFeature& wayFeature, const geos:
 		wayFeature.dis_average = wayMappingDis.dis_avg;
 		wayFeature.dis_min = wayMappingDis.dis_min;
 		wayFeature.dis_max = wayMappingDis.dis_max;
+		wayFeature.dis_mapping_sta = wayMappingDis.dis_mapping_sta;
+		wayFeature.dis_mapping_end = wayMappingDis.dis_mapping_end;
 	}
 	return ret_wfc && ret_wfc2 && ret_wfc3 && ret_wfc4;
 }
