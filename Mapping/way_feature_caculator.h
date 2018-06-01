@@ -62,24 +62,28 @@ struct WayMappingDis
 	double dis_min;
 	double dis_max;
 	double dis_avg;
+	double dis_mapping_sta;
+	double dis_mapping_end;
 	WayMappingDis()
 	 : dis_min(DBL_MAX)
 	 , dis_max(0.)
-	 , dis_avg(DBL_MAX){}
+	 , dis_avg(DBL_MAX)
+	 , dis_mapping_sta(DBL_MAX)
+	 , dis_mapping_end(DBL_MAX){}
 
 	~WayMappingDis(){}
 
 };
 
-struct WayHaustorffDis
+struct WayHausdorffDis
 {
 	double dis_hausdorff_ln1;
 	double dis_hausdorff_ln2;
-	WayHaustorffDis()
+	WayHausdorffDis()
 	 : dis_hausdorff_ln1(DBL_MAX)
 	 , dis_hausdorff_ln2(DBL_MAX){}
 
-	~WayHaustorffDis(){}
+	~WayHausdorffDis(){}
 };
 
 struct WayHausdorffDir
@@ -87,8 +91,8 @@ struct WayHausdorffDir
 	double dir_hausdorff_ln1;
 	double dir_hausdorff_ln2;
 	WayHausdorffDir()
-	 : dir_hausdorff_ln1(DBL_MAX)
-	 , dir_hausdorff_ln2(DBL_MAX){}
+		: dir_hausdorff_ln1(DBL_MAX)
+		, dir_hausdorff_ln2(DBL_MAX) {}
 
 	~WayHausdorffDir(){}
 };
@@ -98,13 +102,6 @@ class WayFeatureCalculator
 public:
 	WayFeatureCalculator();
 	virtual ~WayFeatureCalculator();
-
-	/**
-	 * @brief transform from lat-lon to mercator.
-	 * @param pt point.
-	 * @return result point.
-	 */
-	static geos::geom::Coordinate ll2mc(const geos::geom::Coordinate & pt);
 
 	// 求sg2 p0点作sg2的垂线，与sg1的交点 sg1与sg2的夹角小于30度
 	static void calMappingPoint(geos::geom::Coordinate& pt, const geos::geom::LineSegment& sg1, const geos::geom::LineSegment& sg2, bool first);
@@ -119,7 +116,7 @@ public:
 	static bool calCoverOfLine(WayMappingPos& wayMappingPos, const geos::geom::LineString& ln1, const geos::geom::LineString& ln2, double dis_Threshold);
 
 	// ln1与ln2之间点豪斯多夫距离 包括ln1到ln2和ln2到ln1的两个豪斯多夫距离的最大和最小值
-	static bool calHausdorffDis(WayHaustorffDis& wayHausdorffDis, const geos::geom::LineString& ln1, const geos::geom::LineString& ln2);
+	static bool calHausdorffDis(WayHausdorffDis& wayHausdorffDis, const geos::geom::LineString& ln1, const geos::geom::LineString& ln2);
 
 	// ln1与ln2匹配点间的距离 包括最大／最小／平均
 	static bool calMappingDis(WayMappingDis& wayMappingDis, const geos::geom::LineString& ln1, const geos::geom::LineString& ln2, double dis_Threshold);
@@ -130,6 +127,4 @@ public:
 	// ln1和ln2之间的豪斯多夫距离和匹配距离
 	static bool calMappingFeature(WayFeature& wayFeature, const geos::geom::LineString& ln1, const geos::geom::LineString& ln2, double dis_Threshold);
 
-private:
-	static geos::geom::Coordinate _conv_(const geos::geom::Coordinate& fromPoint, double factor[]);
 };
