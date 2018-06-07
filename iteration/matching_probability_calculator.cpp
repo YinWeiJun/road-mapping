@@ -2,7 +2,7 @@
  * feature_probability_calculator.cpp
  *
  *  Created on: 2018年5月10日
- *      Author: liping
+ *      Author: yinweijun
  */
 
 #include "matching_probability_calculator.h"
@@ -83,6 +83,7 @@ void MatchingProbabilityCalculator::initEigen(std::map<std::string, int>& ids_ma
 		matrix_hausdorff_dis1_(index_main, index_mapped) = pWayMatchingPair->dis_hausdorff_ln2;
 		matrix_hausdorff_dir0_(index_main, index_mapped) = pWayMatchingPair->angle_hausdorff_ln1;
 		matrix_hausdorff_dir1_(index_main, index_mapped) = pWayMatchingPair->angle_hausdorff_ln2;
+
 	}
 }
 
@@ -104,12 +105,6 @@ void MatchingProbabilityCalculator::calQIJ(double& q, PWayMatchingPair& pWayMatc
 		dis_hausdorff1 = it_find->second->dis_mapping_end;
 	}
 
-//	double dis_hausdorff0 = matrix_hausdorff_dis0_(index_way_main, index_way_mapped);
-//	double dis_hausdorff1 = matrix_hausdorff_dis1_(index_way_main, index_way_mapped);
-
-//	double dir_hausdorff0 = matrix_hausdorff_dir0_(index_way_main, index_way_mapped);
-//	double dir_hausdorff1 = matrix_hausdorff_dir1_(index_way_main, index_way_mapped);
-
 	double angle_start_main = way_main->sta_angle;
 	double angle_end_main = way_main->end_angle;
 	double angle_start_mapped = way_mapped->sta_angle;
@@ -120,18 +115,33 @@ void MatchingProbabilityCalculator::calQIJ(double& q, PWayMatchingPair& pWayMatc
 
 	if(last)
 	{
-		main = way_main->vec_last_way;
-		mapped = way_mapped->vec_last_way;
+		if (pWayMatchingPair->same_direction)
+		{
+			main = way_main->vec_last_way;
+			mapped = way_mapped->vec_last_way;
+		}
+		else
+		{
+			main = way_main->vec_last_way;
+			mapped = way_mapped->vec_next_way;
+		}
 	}
 	else
 	{
-		main = way_main->vec_next_way;
-		mapped = way_mapped->vec_next_way;
+		if (pWayMatchingPair->same_direction)
+		{
+			main = way_main->vec_next_way;
+			mapped = way_mapped->vec_next_way;
+		}
+		else
+		{
+			main = way_main->vec_next_way;
+			mapped = way_mapped->vec_last_way;
+		}
 	}
 
-	if (way_main->osm_id == "w1709012307013" && way_mapped->osm_id == "w1712509860592")
+	if (way_main->osm_id == "w1712502152726" && way_mapped->osm_id == "w1709001738553")
 	{
-		std::cout << "SAME" << std::endl;
 		debug = true;
 	}
 	if(debug)
@@ -164,14 +174,24 @@ void MatchingProbabilityCalculator::calQIJ(double& q, PWayMatchingPair& pWayMatc
 				std::map<std::string, int>::iterator it_find_last_mapped = ids_mapped.find(way_last_mapped->osm_id);
 				if (it_find_last_mapped == ids_mapped.end())
 					continue;
-				int index_way_last_mapped = ids_main[way_last_mapped->osm_id];
-				p_last_mapped += matrix_confidence_.col(index_way_last_mapped).maxCoeff();
-				num_p_last_mapped += 1;
+				int index_way_last_mapped = ids_mapped[way_last_mapped->osm_id];
+				if(matrix_confidence_.col(index_way_last_mapped).maxCoeff() < 0.1)
+					continue;
+				if(matrix_confidence_(index_way_main, index_way_last_mapped) > 1e-7)
+				{
+					p_last_mapped += matrix_confidence_(index_way_main, index_way_last_mapped);
+					num_p_last_mapped += 1;
+				}
+				else
+				{
+					p_last_mapped += 1.0 - matrix_confidence_.col(index_way_last_mapped).maxCoeff();
+					num_p_last_mapped += 1;
+				}
 			}
 			if (num_p_last_mapped > 1)
 				p_last_mapped = p_last_mapped / num_p_last_mapped;
-			q1 = 1.0 - p_last_mapped;
-			q2 = 1.0 - p_last_mapped;
+			q1 = p_last_mapped;
+			q2 = p_last_mapped;
 		}
 		else
 		{
@@ -185,13 +205,23 @@ void MatchingProbabilityCalculator::calQIJ(double& q, PWayMatchingPair& pWayMatc
 				if (it_find_last_main == ids_main.end())
 					continue;
 				int index_way_last_main = ids_main[way_last_main->osm_id];
-				p_last_main += matrix_confidence_.row(index_way_last_main).maxCoeff();
-				num_p_last_main += 1;
+				if(matrix_confidence_.row(index_way_last_main).maxCoeff() < 0.1)
+					continue;
+				if (matrix_confidence_(index_way_last_main, index_way_mapped) > 1e-7)
+				{
+					p_last_main += matrix_confidence_(index_way_last_main, index_way_mapped);
+					num_p_last_main += 1;
+				}
+				else
+				{
+					p_last_main += 1.0 - matrix_confidence_.row(index_way_last_main).maxCoeff();
+					num_p_last_main += 1;
+				}
 			}
 			if (num_p_last_main > 1)
 				p_last_main = p_last_main / num_p_last_main;
-			q1 = 1.0 - p_last_main;
-			q2 = 1.0 - p_last_main;
+			q1 = p_last_main;
+			q2 = p_last_main;
 		}
 
 		q = std::max(q1, q2);
@@ -212,13 +242,14 @@ void MatchingProbabilityCalculator::calQIJ(double& q, PWayMatchingPair& pWayMatc
 		// TODO 1:0
 		std::map<std::string, int>::iterator it_find_last_main = ids_main.find(way_last_main->osm_id);
 		if (it_find_last_main == ids_main.end())
+		{
+			num_add += 1;
 			continue;
-
+		}
 		int index_way_last_main = ids_main[way_last_main->osm_id];
 
 		std::vector<PWay>::iterator it_last_mapped = mapped.begin();
 		double cp(0.);
-		bool added(true);
 		for(; it_last_mapped != mapped.end(); ++it_last_mapped)
 		{
 			PWay way_last_mapped = *it_last_mapped;
@@ -227,13 +258,13 @@ void MatchingProbabilityCalculator::calQIJ(double& q, PWayMatchingPair& pWayMatc
 				continue;
 
 			int index_way_last_mapped = ids_mapped[way_last_mapped->osm_id];
+
 			// i,j,a,b
 			double confidence = matrix_confidence_(index_way_last_main, index_way_last_mapped);
 			if(confidence > 1e-7 )
 			{
-				added = false;
-				// double dis_hausdorff_last0 = matrix_hausdorff_dis0_(index_way_last_main, index_way_last_mapped);
-				// double dis_hausdorff_last1 = matrix_hausdorff_dis1_(index_way_last_main, index_way_last_mapped);
+				if(debug)
+					std::cout << "	Confidence: " << confidence << ",	maxCoeff: " <<  matrix_confidence_.row(index_way_last_main).maxCoeff() << std::endl;
 				double d1(0.);
 				double d2(0.);
 				double rate(0.);
@@ -245,7 +276,7 @@ void MatchingProbabilityCalculator::calQIJ(double& q, PWayMatchingPair& pWayMatc
 					d2 = it_find->second->dis_mapping_end;
 					if(it_find->second->length_mapping_ln2 < 1e-7)
 						continue;
-					rate = fabs(1.0 - fabs(it_find->second->length_mapping_ln1 - it_find->second->length_mapping_ln2) / it_find->second->length_mapping_ln1);
+					rate = fabs(1.0 - fabs(it_find->second->length_mapping_ln1 - it_find->second->length_mapping_ln2) / std::max(it_find->second->length_mapping_ln1, it_find->second->length_mapping_ln2));
 				}
 				else
 					continue;
@@ -257,9 +288,25 @@ void MatchingProbabilityCalculator::calQIJ(double& q, PWayMatchingPair& pWayMatc
 				}
 				double d_dir(0.);
 				if(last)
-					d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_main->end_angle, angle_start_main), GeosTool::calculate_include_angle(way_last_mapped->end_angle, angle_start_mapped)));
+				{
+					if (pWayMatchingPair->same_direction)
+						d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_main->end_angle, angle_start_main), GeosTool::calculate_include_angle(way_last_mapped->end_angle, angle_start_mapped)));
+					else
+						d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_main->end_angle, angle_start_main), GeosTool::calculate_include_angle(way_last_mapped->sta_angle, angle_end_mapped)));
+
+					if(debug)
+					{
+						std::cout << "	last_main_end:  " << way_last_main->end_angle << "	main_start:  " << angle_start_main << "	dir1:  " << GeosTool::calculate_include_angle(way_last_main->end_angle, angle_start_main) << std::endl;
+						std::cout << "	last_mapped_sta:  " << way_last_mapped->sta_angle << "	mapped_end:  " << angle_end_mapped << "	dir1:  " << GeosTool::calculate_include_angle(way_last_mapped->sta_angle, angle_end_mapped) << std::endl;
+					}
+				}
 				else
-					d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_main->sta_angle, angle_end_main), GeosTool::calculate_include_angle(way_last_mapped->sta_angle, angle_end_mapped)));
+				{
+					if (pWayMatchingPair->same_direction)
+						d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_main->sta_angle, angle_end_main), GeosTool::calculate_include_angle(way_last_mapped->sta_angle, angle_end_mapped)));
+					else
+						d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_main->sta_angle, angle_end_main), GeosTool::calculate_include_angle(way_last_mapped->end_angle, angle_start_mapped)));
+				}
 				q_dir = d_dir;
 
 				double a = -0.2*std::log(2);
@@ -297,9 +344,8 @@ void MatchingProbabilityCalculator::calQIJ(double& q, PWayMatchingPair& pWayMatc
 		double confidence_j = matrix_confidence_(index_way_last_main, index_way_mapped);
 		if(confidence_j > 1e-7 )
 		{
-			added = false;
-			// double dis_hausdorff_last0 = matrix_hausdorff_dis0_(index_way_last_main, index_way_mapped);
-			// double dis_hausdorff_last1 = matrix_hausdorff_dis1_(index_way_last_main, index_way_mapped);
+			if(debug)
+				std::cout << "	Confidence: " << confidence_j << ",	maxCoeff: " <<  matrix_confidence_.row(index_way_last_main).maxCoeff() << std::endl;
 			double d1(0.);
 			double d2(0.);
 			double rate(0.);
@@ -313,20 +359,36 @@ void MatchingProbabilityCalculator::calQIJ(double& q, PWayMatchingPair& pWayMatc
 				{
 					if(cp > 1e-7)
 					{
-						num_q1 += 1;
-						q1 += cp;
+						if (matrix_confidence_.row(index_way_last_main).maxCoeff() > 0.1)
+						{
+							num_q1 += 1;
+							q1 += cp;
+						}
+						else
+						{
+							num_add += 1;
+						}
 					}
+					else
+						num_add += 1;
 					continue;
 				}
-				rate = it_find->second->length_mapping_ln1 / it_find->second->length_mapping_ln2;
+				rate = 1.0 - fabs(it_find->second->length_mapping_ln1 - it_find->second->length_mapping_ln2) / std::max(it_find->second->length_mapping_ln1, it_find->second->length_mapping_ln2);
 			}
 			else
 			{
 				if(cp > 1e-7)
 				{
-					num_q1 += 1;
-					q1 += cp;
+					if(matrix_confidence_.row(index_way_last_main).maxCoeff() > 0.1)
+					{
+						num_q1 += 1;
+						q1 += cp;
+					}
+					else
+						num_add += 1;
 				}
+				else
+					num_add += 1;
 				continue;
 			}
 			double q_dis = 0.0;
@@ -336,10 +398,14 @@ void MatchingProbabilityCalculator::calQIJ(double& q, PWayMatchingPair& pWayMatc
 				q_dis = fabs((d1 + d2) / 2 - (dis_hausdorff0 + dis_hausdorff1) / 2);
 			}
 			double d_dir(0.);
-			if(last)
-				d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_main->end_angle, angle_start_main), 0));
-			else
-				d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_main->sta_angle, angle_end_main), 0));
+//			if(last)
+//			{
+//				d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_main->end_angle, angle_start_main), 0));
+//			}
+//			else
+//			{
+//				d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_main->sta_angle, angle_end_main), 0));
+//			}
 			q_dir = d_dir;
 
 			double a = -0.2*std::log(2);
@@ -372,24 +438,26 @@ void MatchingProbabilityCalculator::calQIJ(double& q, PWayMatchingPair& pWayMatc
 
 			cp = std::max(cp, c * confidence_j);
 		}
-
 		if(cp > 1e-7)
 		{
-			num_q1 += 1;
-			q1 += cp;
+			if(matrix_confidence_.row(index_way_last_main).maxCoeff() > 0.1)
+			{
+				num_q1 += 1;
+				q1 += cp;
+			}
+			else
+				num_add += 1;
 		}
 		else
 		{
-			if (added)
+			if(matrix_confidence_.row(index_way_last_main).maxCoeff() < 0.1)
 				num_add += 1;
 		}
 	}
-//	if(num_q1 > 1e-7)
-//		q1 = q1 / num_q1;
 	if(main.size() - num_add > 1e-7)
 		q1 = q1 / (main.size() - num_add);
 	else
-		q1 = 0;
+		q1 = matrix_confidence_(index_way_main, index_way_mapped);
 
 	//q2
 	// i,j,i,b
@@ -404,8 +472,6 @@ void MatchingProbabilityCalculator::calQIJ(double& q, PWayMatchingPair& pWayMatc
 		double confidence_i = matrix_confidence_(index_way_main, index_way_last_mapped);
 		if(confidence_i > 1e-7 )
 		{
-			// double dis_hausdorff_last0 = matrix_hausdorff_dis0_(index_way_main, index_way_last_mapped);
-			// double dis_hausdorff_last1 = matrix_hausdorff_dis1_(index_way_main, index_way_last_mapped);
 			double d1(0.);
 			double d2(0.);
 			double rate(0.);
@@ -417,7 +483,7 @@ void MatchingProbabilityCalculator::calQIJ(double& q, PWayMatchingPair& pWayMatc
 				d2 = it_find->second->dis_mapping_end;
 				if(it_find->second->length_mapping_ln2 < 1e-7)
 					continue;
-				rate = fabs(1.0 - fabs(it_find->second->length_mapping_ln1 - it_find->second->length_mapping_ln2) / it_find->second->length_mapping_ln1);
+				rate = fabs(1.0 - fabs(it_find->second->length_mapping_ln1 - it_find->second->length_mapping_ln2) / std::max(it_find->second->length_mapping_ln1, it_find->second->length_mapping_ln2));
 			}
 			else
 				continue;
@@ -429,10 +495,20 @@ void MatchingProbabilityCalculator::calQIJ(double& q, PWayMatchingPair& pWayMatc
 				q_dis = fabs((d1 + d2) / 2 - (dis_hausdorff0 + dis_hausdorff1) / 2);
 			}
 			double d_dir(0.);
-			if(last)
-				d_dir = fabs(GeosTool::calculate_include_angle(0, GeosTool::calculate_include_angle(way_last_mapped->end_angle, angle_start_mapped)));
-			else
-				d_dir = fabs(GeosTool::calculate_include_angle(0, GeosTool::calculate_include_angle(way_last_mapped->sta_angle, angle_end_mapped)));
+//			if(last)
+//			{
+//				if (pWayMatchingPair->same_direction)
+//					d_dir = fabs(GeosTool::calculate_include_angle(0, GeosTool::calculate_include_angle(way_last_mapped->end_angle, angle_start_mapped)));
+//				else
+//					d_dir = fabs(GeosTool::calculate_include_angle(0, GeosTool::calculate_include_angle(way_last_mapped->sta_angle, angle_end_mapped)));
+//			}
+//			else
+//			{
+//				if (pWayMatchingPair->same_direction)
+//					d_dir = fabs(GeosTool::calculate_include_angle(0, GeosTool::calculate_include_angle(way_last_mapped->sta_angle, angle_end_mapped)));
+//				else
+//					d_dir = fabs(GeosTool::calculate_include_angle(0, GeosTool::calculate_include_angle(way_last_mapped->end_angle, angle_start_mapped)));
+//			}
 			q_dir = d_dir;
 
 			double a = -0.2*std::log(2);
@@ -466,10 +542,37 @@ void MatchingProbabilityCalculator::calQIJ(double& q, PWayMatchingPair& pWayMatc
 			q2 = std::max(q2, c * confidence_i);
 		}
 	}
+
+//	if(q1 > 1e-7 || q2 > 1e-7)
+//	{
+//		if(q1 > 1e-7 && q2 > 1e-7)
+//		{
+//			q = (q1 + q2) / (main.size() - num_add + 1);
+//		}
+//		else if(q1 > 1e-7)
+//		{
+//			if(main.size() - num_add > 1e-7)
+//			{
+//				q = q1 / (main.size() - num_add);
+//			}
+//			else
+//			{
+//				q = matrix_confidence_(index_way_main, index_way_mapped);
+//			}
+//		}
+//		else
+//		{
+//			q = q2;
+//		}
+//	}
+//	else
+//		q = 0.0;
 	q = std::max(q1, q2);
 	if(debug)
 	{
-		std::cout << "\n	IJ Result:  " << q << std::endl;
+		std::cout << "JI: num_q1: " << num_q1 << std::endl;
+		std::cout << "q1: " << q1 << ", q2: " << q2 << std::endl;
+		std::cout << "\n	IJ Result:  " << q << ",	num_added: " << num_add << std::endl;
 	}
 }
 
@@ -490,11 +593,6 @@ void MatchingProbabilityCalculator::calQJI(double& q, PWayMatchingPair& pWayMatc
 		dis_hausdorff0 = it_find->second->dis_mapping_sta;
 		dis_hausdorff1 = it_find->second->dis_mapping_end;
 	}
-//	double dis_hausdorff0 = matrix_hausdorff_dis0_(index_way_main, index_way_mapped);
-//	double dis_hausdorff1 = matrix_hausdorff_dis1_(index_way_main, index_way_mapped);
-
-//	double dir_hausdorff0 = matrix_hausdorff_dir0_(index_way_main, index_way_mapped);
-//	double dir_hausdorff1 = matrix_hausdorff_dir1_(index_way_main, index_way_mapped);
 
 	double angle_start_main = way_main->sta_angle;
 	double angle_end_main = way_main->end_angle;
@@ -506,17 +604,32 @@ void MatchingProbabilityCalculator::calQJI(double& q, PWayMatchingPair& pWayMatc
 
 	if(last)
 	{
-		main = way_main->vec_last_way;
-		mapped = way_mapped->vec_last_way;
+		if (pWayMatchingPair->same_direction)
+		{
+			main = way_main->vec_last_way;
+			mapped = way_mapped->vec_last_way;
+		}
+		else
+		{
+			main = way_main->vec_last_way;
+			mapped = way_mapped->vec_next_way;
+		}
 	}
 	else
 	{
-		main = way_main->vec_next_way;
-		mapped = way_mapped->vec_next_way;
+		if (pWayMatchingPair->same_direction)
+		{
+			main = way_main->vec_next_way;
+			mapped = way_mapped->vec_next_way;
+		}
+		else
+		{
+			main = way_main->vec_next_way;
+			mapped = way_mapped->vec_last_way;
+		}
 	}
-	if (way_main->osm_id == "w1709012307013" && way_mapped->osm_id == "w1712509860592")
+	if (way_main->osm_id == "w1712502152726" && way_mapped->osm_id == "w1709001738553")
 	{
-		std::cout << "SAME" << std::endl;
 		debug = true;
 	}
 	if(debug)
@@ -549,14 +662,24 @@ void MatchingProbabilityCalculator::calQJI(double& q, PWayMatchingPair& pWayMatc
 				std::map<std::string, int>::iterator it_find_last_mapped = ids_mapped.find(way_last_mapped->osm_id);
 				if (it_find_last_mapped == ids_mapped.end())
 					continue;
-				int index_way_last_mapped = ids_main[way_last_mapped->osm_id];
-				p_last_mapped += matrix_confidence_.col(index_way_last_mapped).maxCoeff();
-				num_p_last_mapped += 1;
+				int index_way_last_mapped = ids_mapped[way_last_mapped->osm_id];
+				if(matrix_confidence_.col(index_way_last_mapped).maxCoeff() < 0.1)
+					continue;
+				if (matrix_confidence_(index_way_main, index_way_last_mapped) > 1e-7)
+				{
+					p_last_mapped += matrix_confidence_(index_way_main, index_way_last_mapped);
+					num_p_last_mapped += 1;
+				}
+				else
+				{
+					p_last_mapped += 1.0 - matrix_confidence_.col(index_way_last_mapped).maxCoeff();
+					num_p_last_mapped += 1;
+				}
 			}
 			if (num_p_last_mapped > 1)
 				p_last_mapped = p_last_mapped / num_p_last_mapped;
-			q1 = 1.0 - p_last_mapped;
-			q2 = 1.0 - p_last_mapped;
+			q1 = p_last_mapped;
+			q2 = p_last_mapped;
 		}
 		else
 		{
@@ -570,19 +693,29 @@ void MatchingProbabilityCalculator::calQJI(double& q, PWayMatchingPair& pWayMatc
 				if (it_find_last_main == ids_main.end())
 					continue;
 				int index_way_last_main = ids_main[way_last_main->osm_id];
-				p_last_main += matrix_confidence_.row(index_way_last_main).maxCoeff();
-				num_p_last_main += 1;
+				if(matrix_confidence_.row(index_way_last_main).maxCoeff() < 0.1)
+					continue;
+				if (matrix_confidence_(index_way_last_main, index_way_mapped) > 1e-7)
+				{
+					p_last_main += matrix_confidence_(index_way_last_main, index_way_mapped);
+					num_p_last_main += 1;
+				}
+				else
+				{
+					p_last_main += 1.0 - matrix_confidence_.row(index_way_last_main).maxCoeff();
+					num_p_last_main += 1;
+				}
 			}
 			if (num_p_last_main > 1)
 				p_last_main = p_last_main / num_p_last_main;
-			q1 = 1.0 - p_last_main;
-			q2 = 1.0 - p_last_main;
+			q1 = p_last_main;
+			q2 = p_last_main;
 		}
 
 		q = std::max(q1, q2);
 		if(debug)
 		{
-			std::cout << "\n	IJ Result:  " << q << std::endl;
+			std::cout << "\n	JI Result:  " << q << std::endl;
 		}
 		return;
 	}
@@ -596,12 +729,14 @@ void MatchingProbabilityCalculator::calQJI(double& q, PWayMatchingPair& pWayMatc
 		PWay way_last_mapped = *it_mapped;
 		std::map<std::string, int>::iterator it_find_last_mapped = ids_mapped.begin();
 		if (it_find_last_mapped == ids_mapped.end())
+		{
+			num_add += 1;
 			continue;
+		}
 		int index_way_last_mapped = ids_mapped[way_last_mapped->osm_id];
 
 		std::vector<PWay>::iterator it_last_main = main.begin();
 		double cp(0.);
-		bool added(true);
 		for(; it_last_main != main.end(); ++it_last_main)
 		{
 			PWay way_last_main = *it_last_main;
@@ -613,9 +748,8 @@ void MatchingProbabilityCalculator::calQJI(double& q, PWayMatchingPair& pWayMatc
 			double confidence = matrix_confidence_(index_way_last_main, index_way_last_mapped);
 			if(confidence > 1e-7 )
 			{
-				added = false;
-				// double dis_hausdorff_last0 = matrix_hausdorff_dis0_(index_way_last_main, index_way_last_mapped);
-				// double dis_hausdorff_last1 = matrix_hausdorff_dis1_(index_way_last_main, index_way_last_mapped);
+				if(debug)
+					std::cout << "	Confidence: " << confidence << ",	maxCoeff: " <<  matrix_confidence_.col(index_way_last_mapped).maxCoeff() << std::endl;
 				double d1(0.);
 				double d2(0.);
 				double rate(0.);
@@ -627,7 +761,7 @@ void MatchingProbabilityCalculator::calQJI(double& q, PWayMatchingPair& pWayMatc
 					d2 = it_find->second->dis_mapping_end;
 					if(it_find->second->length_mapping_ln1 < 1e-7)
 						continue;
-					rate = fabs(1.0 - fabs(it_find->second->length_mapping_ln1 - it_find->second->length_mapping_ln2) / it_find->second->length_mapping_ln2);
+					rate = fabs(1.0 - fabs(it_find->second->length_mapping_ln1 - it_find->second->length_mapping_ln2) / std::max(it_find->second->length_mapping_ln1, it_find->second->length_mapping_ln2));
 				}
 				else
 					continue;
@@ -639,9 +773,19 @@ void MatchingProbabilityCalculator::calQJI(double& q, PWayMatchingPair& pWayMatc
 				}
 				double d_dir(0.);
 				if(last)
-					d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_main->end_angle, angle_start_main), GeosTool::calculate_include_angle(way_last_mapped->end_angle, angle_start_mapped)));
+				{
+					if (pWayMatchingPair->same_direction)
+						d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_main->end_angle, angle_start_main), GeosTool::calculate_include_angle(way_last_mapped->end_angle, angle_start_mapped)));
+					else
+						d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_main->end_angle, angle_start_main), GeosTool::calculate_include_angle(way_last_mapped->sta_angle, angle_end_mapped)));
+				}
 				else
-					d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_main->sta_angle, angle_end_main), GeosTool::calculate_include_angle(way_last_mapped->sta_angle, angle_end_mapped)));
+				{
+					if (pWayMatchingPair->same_direction)
+						d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_main->sta_angle, angle_end_main), GeosTool::calculate_include_angle(way_last_mapped->sta_angle, angle_end_mapped)));
+					else
+						d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_main->sta_angle, angle_end_main), GeosTool::calculate_include_angle(way_last_mapped->end_angle, angle_start_mapped)));
+				}
 				q_dir = d_dir;
 
 				double a = -0.2*std::log(2);
@@ -679,9 +823,8 @@ void MatchingProbabilityCalculator::calQJI(double& q, PWayMatchingPair& pWayMatc
 		double confidence_i = matrix_confidence_(index_way_main, index_way_last_mapped);
 		if(confidence_i > 1e-7 )
 		{
-			added = false;
-			// double dis_hausdorff_last0 = matrix_hausdorff_dis0_(index_way_main, index_way_last_mapped);
-			// double dis_hausdorff_last1 = matrix_hausdorff_dis1_(index_way_main, index_way_last_mapped);
+			if(debug)
+				std::cout << "	Confidence: " << confidence_i << ",	maxCoeff: " <<  matrix_confidence_.col(index_way_last_mapped).maxCoeff() << std::endl;
 			double d1(0.);
 			double d2(0.);
 			double rate(0.);
@@ -695,20 +838,32 @@ void MatchingProbabilityCalculator::calQJI(double& q, PWayMatchingPair& pWayMatc
 				{
 					if (cp > 1e-7)
 					{
-						num_q1 += 1;
-						q1 += cp;
+						if(matrix_confidence_.col(index_way_last_mapped).maxCoeff() > 0.1)
+						{
+							num_q1 += 1;
+							q1 += cp;
+						}
+						else
+							num_add += 1;
 					}
+					else
+						num_add += 1;
 					continue;
 				}
-				rate = it_find->second->length_mapping_ln2 / it_find->second->length_mapping_ln1;
+				rate = 1 - fabs(it_find->second->length_mapping_ln2 - it_find->second->length_mapping_ln1) / std::max(it_find->second->length_mapping_ln1, it_find->second->length_mapping_ln2);
 			}
 			else
 			{
 				if (cp > 1e-7)
 				{
-					q1 += cp;
-					num_q1 += 1;
+					if(matrix_confidence_.col(index_way_last_mapped).maxCoeff() > 0.1)
+					{
+						q1 += cp;
+						num_q1 += 1;
+					}
 				}
+				else
+					num_add += 1;
 				continue;
 			}
 
@@ -719,10 +874,20 @@ void MatchingProbabilityCalculator::calQJI(double& q, PWayMatchingPair& pWayMatc
 				q_dis = fabs((d1 + d2) / 2 - (dis_hausdorff0 + dis_hausdorff1) / 2);
 			}
 			double d_dir(0.);
-			if(last)
-				d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_mapped->end_angle, angle_start_mapped), 0));
-			else
-				d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_mapped->sta_angle, angle_end_mapped), 0));
+//			if(last)
+//			{
+//				if (pWayMatchingPair->same_direction)
+//					d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_mapped->end_angle, angle_start_mapped), 0));
+//				else
+//					d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_mapped->sta_angle, angle_end_mapped), 0));
+//			}
+//			else
+//			{
+//				if (pWayMatchingPair->same_direction)
+//					d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_mapped->sta_angle, angle_end_mapped), 0));
+//				else
+//					d_dir = fabs(GeosTool::calculate_include_angle(GeosTool::calculate_include_angle(way_last_mapped->end_angle, angle_start_mapped), 0));
+//			}
 			q_dir = d_dir;
 
 			double a = -0.2*std::log(2);
@@ -758,21 +923,24 @@ void MatchingProbabilityCalculator::calQJI(double& q, PWayMatchingPair& pWayMatc
 
 		if(cp > 1e-7)
 		{
-			num_q1 += 1;
-			q1 += cp;
+			if(matrix_confidence_.col(index_way_last_mapped).maxCoeff() > 0.1)
+			{
+				num_q1 += 1;
+				q1 += cp;
+			}
+			else
+				num_add += 1;
 		}
 		else
 		{
-			if (added)
+			if(matrix_confidence_.col(index_way_last_mapped).maxCoeff() < 0.1)
 				num_add += 1;
 		}
 	}
-//	if(num_q1 > 1e-7)
-//		q1 = q1 / num_q1;
 	if(mapped.size() - num_add > 1e-7)
 		q1 = q1 / (mapped.size()- num_add);
 	else
-		q1 = 0.0;
+		q1 = matrix_confidence_(index_way_main, index_way_mapped);
 
 	//q2
 	// j,i,j,a
@@ -787,8 +955,6 @@ void MatchingProbabilityCalculator::calQJI(double& q, PWayMatchingPair& pWayMatc
 		double confidence_j = matrix_confidence_(index_way_last_main, index_way_mapped);
 		if(confidence_j > 1e-7 )
 		{
-			// double dis_hausdorff_last0 = matrix_hausdorff_dis0_(index_way_last_main, index_way_mapped);
-			// double dis_hausdorff_last1 = matrix_hausdorff_dis1_(index_way_last_main, index_way_mapped);
 			double d1(0.);
 			double d2(0.);
 			double rate(0.);
@@ -800,7 +966,7 @@ void MatchingProbabilityCalculator::calQJI(double& q, PWayMatchingPair& pWayMatc
 				d2 = it_find->second->dis_mapping_end;
 				if(it_find->second->length_mapping_ln1 < 1e-7)
 					continue;
-				rate = fabs(1.0 - fabs(it_find->second->length_mapping_ln1 - it_find->second->length_mapping_ln2) / it_find->second->length_mapping_ln2);
+				rate = fabs(1.0 - fabs(it_find->second->length_mapping_ln1 - it_find->second->length_mapping_ln2) / std::max(it_find->second->length_mapping_ln1, it_find->second->length_mapping_ln2));
 			}
 			else
 				continue;
@@ -811,10 +977,10 @@ void MatchingProbabilityCalculator::calQJI(double& q, PWayMatchingPair& pWayMatc
 				q_dis = fabs((d1 + d2) / 2 - (dis_hausdorff0 + dis_hausdorff1) / 2);
 			}
 			double d_dir(0.);
-			if(last)
-				d_dir = fabs(GeosTool::calculate_include_angle(0, GeosTool::calculate_include_angle(way_last_main->end_angle, angle_start_main)));
-			else
-				d_dir = fabs(GeosTool::calculate_include_angle(0, GeosTool::calculate_include_angle(way_last_main->sta_angle, angle_end_main)));
+//			if(last)
+//				d_dir = fabs(GeosTool::calculate_include_angle(0, GeosTool::calculate_include_angle(way_last_main->end_angle, angle_start_main)));
+//			else
+//				d_dir = fabs(GeosTool::calculate_include_angle(0, GeosTool::calculate_include_angle(way_last_main->sta_angle, angle_end_main)));
 			q_dir = d_dir;
 
 			double a = -0.2*std::log(2);
@@ -848,12 +1014,36 @@ void MatchingProbabilityCalculator::calQJI(double& q, PWayMatchingPair& pWayMatc
 			q2 = std::max(q2, c * confidence_j);
 		}
 	}
+//	if(q1 > 1e-7 || q2 > 1e-7)
+//	{
+//		if(q1 > 1e-7 && q2 > 1e-7)
+//		{
+//			q = (q1 + q2) / (main.size() - num_add + 1);
+//		}
+//		else if(q1 > 1e-7)
+//		{
+//			if(main.size() - num_add > 1e-7)
+//			{
+//				q = q1 / (main.size() - num_add);
+//			}
+//			else
+//			{
+//				q = matrix_confidence_(index_way_main, index_way_mapped);
+//			}
+//		}
+//		else
+//		{
+//			q = q2;
+//		}
+//	}
+//	else
+//		q = 0.0;
 	q = std::max(q1, q2);
 	if(debug)
 	{
 		std::cout << "JI: num_q1: " << num_q1 << std::endl;
 		std::cout << "q1: " << q1 << ", q2: " << std::endl;
-		std::cout << "\n	JI Result:  " << q << std::endl;
+		std::cout << "\n	JI Result:  " << q << ",	num_added: " << num_add << std::endl;
 	}
 }
 
@@ -932,6 +1122,11 @@ int MatchingProbabilityCalculator::updateEigen_confidence(std::string fname, std
 //			std::cout << "		main_id: " << way_main->osm_id << ",	mapped_id: " << way_mapped->osm_id << std::endl;
 //			std::cout << "			p_new: " << p_new << ",	p_old: " << p_old << ",	change: " << p_new - p_old << std::endl;
 		}
+//		if (way_main->osm_id == "w1712511798765" && way_mapped->osm_id == "w12034303")
+//		{
+//			std::cout << "			p_new: " << p_new << ",	p_old: " << p_old << ",	change: " << p_new - p_old << std::endl;
+//		}
+
 		f_out << way_main->osm_id + "\t" + way_mapped->osm_id + "\t" + std::to_string(p_old) + "\t" + std::to_string(p_new) << "\t" << std::to_string(p_new - p_old) + "\n";
 	}
 	f_out.close();
@@ -992,8 +1187,8 @@ void MatchingProbabilityCalculator::update()
 		std::cout << "	ids:	ids_main_: " << ids_main_.size() << ", ids_mapped_: " << ids_mapped_.size() << std::endl;
 		std::cout << "	SIZE matrix_confidence_:	row:" << matrix_confidence_.rows() << ", cols" << matrix_confidence_.cols() << ", sum: " << matrix_confidence_.sum() << std::endl;
 //		MatchingProbabilityCalculator::outMatrix("/Users/didi/Documents/work/data/result_0519/iteration/p0.txt", matrix_confidence_);
-		MatchingProbabilityCalculator::outIds("/Users/didi/Documents/work/data/result_0519/iteration/ids_main_.txt", ids_main_);
-		MatchingProbabilityCalculator::outIds("/Users/didi/Documents/work/data/result_0519/iteration/ids_mapped_.txt", ids_mapped_);
+//		MatchingProbabilityCalculator::outIds("/Users/didi/Documents/work/data/result_0519/iteration/ids_main_.txt", ids_main_);
+//		MatchingProbabilityCalculator::outIds("/Users/didi/Documents/work/data/result_0519/iteration/ids_mapped_.txt", ids_mapped_);
 	}
 	MatchingProbabilityCalculator::initEigen_support(ids_main_, ids_mapped_);
 	if(debug)
@@ -1006,7 +1201,7 @@ void MatchingProbabilityCalculator::update()
 	if(debug)
 		std::cout << "------------------start update--------------------" << std::endl;
 	int i = 0;
-	int num_change(1000);
+	int num_change(INT_MAX);
 //	while(num_change > CHANGED)
 	while(num_change > 0)
 	{
@@ -1027,6 +1222,9 @@ void MatchingProbabilityCalculator::update()
 		std::cout << "	------------------updateEigen_support--------------------" << std::endl;
 
 //		num_change = std::max(n_change_confidence, n_change_support);
+		if (n_change_confidence >= num_change)
+			break;
+
 		num_change = n_change_confidence;
 		if(debug)
 		{
@@ -1034,7 +1232,7 @@ void MatchingProbabilityCalculator::update()
 //			MatchingProbabilityCalculator::outMatrix("/Users/didi/Documents/work/data/result_0519/iteration/q"+ std::to_string(i) +".txt", matrix_support_);
 //			MatchingProbabilityCalculator::outPairConfidence("/Users/didi/Documents/work/data/result_0519/iteration/Pair"+ std::to_string(i) +".txt", ids_main, ids_mapped);
 		}
-//		return;
+		return;
 	}
 	std::cout << "OVER!" << std::endl;
 }
@@ -1082,4 +1280,5 @@ void MatchingProbabilityCalculator::outPairConfidence(std::string fname, std::ma
 	}
 	f_p.close();
 }
+
 
