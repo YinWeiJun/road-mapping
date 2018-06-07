@@ -2,7 +2,7 @@
  * feature_probability_calculator.h
  *
  *  Created on: 2018年5月10日
- *      Author: liping
+ *      Author: yinweijun
  */
 
 #ifndef SRC_ITERATION_MATCHING_PROBABILITY_CALCULATOR_H_
