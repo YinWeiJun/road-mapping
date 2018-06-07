@@ -77,3 +77,4 @@ private:
 };
 
 #endif /* SRC_ITERATION_MATCHING_PROBABILITY_CALCULATOR_H_ */
+
