@@ -2,7 +2,7 @@
  * feature_probability_calculator.cpp
  *
  *  Created on: 2018年5月10日
- *      Author: liping
+ *      Author: yinweijun
  */
 
 #include "feature_probability_calculator.h"
