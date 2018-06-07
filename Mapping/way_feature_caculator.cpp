@@ -2,7 +2,7 @@
  * Mapping.cpp
  *
  *  Created on: 2018年5月4日
- *      Author: didi
+ *      Author: yinweijun
  */
 
 #include "way_feature_calculator.h"
